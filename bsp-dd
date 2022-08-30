@@ -19,7 +19,7 @@
 ## L_ADD : --cycle prev add one
 ## R_ADD : --cycle next add one
 DESKTOP_CYCLE_R_ADD=1
-DESKTOP_CYCLE_L_ADD=0
+DESKTOP_CYCLE_L_ADD=1
 
 dnames="I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI XVII XVIII XIX XX"
 dnames=($dnames)
