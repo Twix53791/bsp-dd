@@ -1,0 +1,135 @@
+#!/bin/bash
+# MADE by twix. https://github.com/Twix53791
+#====================================
+# A script to add and remove desktops
+#====================================
+# This script implement a "dynamic desktop" in bspwm
+# It can:
+#     -a       add a dektop
+#      -a 2     insert a new desktop at the 2d position (ex: desktop II)
+#     -r       remove a desktop (by default, the focused one)
+#      -r 2 VI  remove the desktop II and VI (or 2 and 6)
+#      -r all   remove all empty desktops
+#========================================
+#============================#
+###======= CONFIG =========###
+
+## Set to 1 enable the adding of a new desktop
+## at the end of the desktop cycle (bsp-dd --cycle prev/next)
+## L_ADD : --cycle prev add one
+## R_ADD : --cycle next add one
+DESKTOP_CYCLE_R_ADD=1
+DESKTOP_CYCLE_L_ADD=0
+
+dnames="I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI XVII XVIII XIX XX"
+dnames=($dnames)
+
+
+#============================#
+###====== FUNCTIONS =======###
+
+_reorder (){
+   n=1;d=0
+
+   for desk in $(bspc query -D); do
+      bspc desktop focused:^$n -n ${dnames[$d]}
+      ((n++)); ((d++))
+   done
+}
+
+_remove (){
+   if [[ -z $@ ]]; then
+      bspc desktop focused -r
+   elif [[ $1 == "all" ]]; then
+      for _desk in $(bspc query -D -d .\!occupied); do
+         bspc desktop $_desk -r
+      done
+   else
+      for el in "$@"; do
+         if [[ $el =~ [0-9] && $el != *x* ]]; then
+            bspc desktop ${dnames[(($el - 1))]} -r
+         else
+            bspc desktop $el -r
+         fi
+      done
+   fi
+   _reorder
+}
+
+_add (){
+   nth=$(bspc query -D | wc -l)
+   bspc monitor $_monitor -a ${dnames[$nth]}
+
+   if [[ -n $1 ]]; then
+      loop=$(($nth - $1 + 1 ))
+
+      for i in $(seq 1 $loop); do
+         bspc desktop ${dnames[$nth]} -b prev
+      done
+      _reorder
+   fi
+}
+
+## Cycle through workspaces & toggle a new one at the right end
+_cycle (){
+   case $1 in
+      next)
+         last=$(bspc query -D | tail -1)
+         focus=$(bspc query -D -d focused)
+         isempty=$(bspc query -D -d focused.\!occupied)
+         if [[ -n $isempty ]]; then
+            bspc desktop -f next.local
+            bsp-dd -r $isempty
+         elif [[ $last == $focus && $DESKTOP_CYCLE_R_ADD == 1 ]]; then
+            bsp-dd -a
+            bspc desktop -f next.local
+         else
+            bspc desktop -f next.local
+         fi
+         ;;
+      prev)
+         last=$(bspc query -D | head -1)
+         focus=$(bspc query -D -d focused)
+         isempty=$(bspc query -D -d focused.\!occupied)
+         if [[ -n $isempty ]]; then
+            bsp-dd -r $isempty
+         elif [[ $last == $focus && $DESKTOP_CYCLE_L_ADD == 1 ]]; then
+            bsp-dd -a
+            bspc desktop -f prev.local
+         else
+            bspc desktop -f prev.local
+         fi
+         ;;
+   esac
+}
+
+_bubble (){
+   case $1 in
+      next)
+         bspc desktop -b next;;
+      prev)
+         bspc desktop -b prev;;
+   esac
+   _reorder
+}
+
+
+#======================#
+###===== SCRIPT =====###
+
+for arg in "$@"; do
+   case $arg in
+      -m) shift;
+          [[ ! $1 =~ ^- ]] && _monitor=$1;
+          shift;;
+      -r) shift; _remove "$@";;
+      -a) shift;
+          [[ $1 =~ [0-9] ]] && insert=$1;
+          _add $insert
+          ;;
+      -c) shift; _cycle $1;;
+   --cycle) shift; _cycle $1;;
+      -b) shift; _bubble $1;;
+   esac
+done
+
